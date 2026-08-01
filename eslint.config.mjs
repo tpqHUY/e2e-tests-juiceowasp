@@ -32,6 +32,14 @@ export default tseslint.config(
     },
   },
   {
+    // k6 scripts run in their own JS runtime with these injected globals.
+    files: ['perf/k6/**/*.js'],
+    languageOptions: {
+      globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly' },
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    },
+  },
+  {
     files: ['tests/**/*.spec.ts'],
     ...playwright.configs['flat/recommended'],
     rules: {
