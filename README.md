@@ -2,8 +2,8 @@
 
 <!-- GitHub Pages: Settings → Pages → Source "GitHub Actions"; the nightly workflow deploys the Allure report. -->
 
-[![smoke](https://github.com/tpqHUY/QA_Auto_Project_JuiceOWASP/actions/workflows/smoke.yml/badge.svg)](https://github.com/tpqHUY/QA_Auto_Project_JuiceOWASP/actions/workflows/smoke.yml)
-[![nightly-regression](https://github.com/tpqHUY/QA_Auto_Project_JuiceOWASP/actions/workflows/nightly-regression.yml/badge.svg)](https://github.com/tpqHUY/QA_Auto_Project_JuiceOWASP/actions/workflows/nightly-regression.yml)
+[![smoke](https://github.com/tpqHUY/e2e-tests-juiceowasp/actions/workflows/smoke.yml/badge.svg)](https://github.com/tpqHUY/e2e-tests-juiceowasp/actions/workflows/smoke.yml)
+[![nightly-regression](https://github.com/tpqHUY/e2e-tests-juiceowasp/actions/workflows/nightly-regression.yml/badge.svg)](https://github.com/tpqHUY/e2e-tests-juiceowasp/actions/workflows/nightly-regression.yml)
 
 End-to-end test automation framework for a **real dockerized e-commerce app**
 ([OWASP Juice Shop](https://github.com/juice-shop/juice-shop)), covering the full
@@ -15,7 +15,7 @@ factories, and schema-validated contract tests.
 > **9 unit tests** (Vitest) and **2 visual-regression** baselines.
 > Tagged `@smoke` (14) / `@regression` (67) / `@api` (32) / `@security` (7) / `@a11y` / `@performance` / `@visual` for CI selection.
 > **Static + unit + smoke checks on every push** (chromium) + **nightly, sharded, cross-browser regression** with an
-> **[Allure trend report](https://tpqhuy.github.io/QA_Auto_Project_JuiceOWASP/)** published to GitHub Pages.
+> **[Allure trend report](https://tpqhuy.github.io/e2e-tests-juiceowasp/)** published to GitHub Pages.
 
 ---
 
@@ -138,7 +138,7 @@ npm run report            # open the last Playwright HTML report
 - **Playwright HTML** — generated every run; `npm run report`.
 - **Allure** (trend/history) — `npm run allure:serve` (needs a JRE). The nightly
   workflow publishes it to GitHub Pages:
-  `https://tpqhuy.github.io/QA_Auto_Project_JuiceOWASP/`.
+  `https://tpqhuy.github.io/e2e-tests-juiceowasp/`.
 
 ## Quality gates
 

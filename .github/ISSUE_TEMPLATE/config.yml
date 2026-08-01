@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: 📋 Backlog & ways of working
-    url: https://github.com/tpqHUY/QA_Auto_Project_JuiceOWASP/blob/main/docs/workflow/README.md
+    url: https://github.com/tpqHUY/e2e-tests-juiceowasp/blob/main/docs/workflow/README.md
     about: How this project is run (sprints, branch/PR flow, Definition of Done).
   - name: 🐛 Bug report write-ups
-    url: https://github.com/tpqHUY/QA_Auto_Project_JuiceOWASP/tree/main/docs/bug-reports
+    url: https://github.com/tpqHUY/e2e-tests-juiceowasp/tree/main/docs/bug-reports
     about: JIRA-style defect reports for issues found while testing.
