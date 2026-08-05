@@ -1,6 +1,8 @@
 # Tuần 4 — Hiểu từng bước triển khai: Checkout + E2E + CI
 
 > Tài liệu này viết để **bạn hiểu project**, không phải để liệt kê. Với mỗi mảnh, bạn sẽ thấy: **(1) làm gì**, **(2) code thật trông ra sao**, **(3) vì sao làm vậy**, và **(4) nếu không làm vậy thì hỏng gì**. Đọc tuần tự từ trên xuống là một hành trình học.
+>
+> 🔗 Bản tổng hợp theo kiến trúc (checkout flow, CI) của cùng nội dung: [framework-flow-explained.md](../framework-flow-explained.md), [docs/setup/ci.md](../setup/ci.md).
 
 Tuần 4 thêm 3 thứ vào framework: luồng **Checkout** (địa chỉ → giao hàng → thanh toán → đặt hàng), một kịch bản **E2E** hoàn chỉnh (khách vãng lai → mua xong), và một **pipeline CI smoke**. Kết quả: 47 → **52 test**, đều xanh ổn định.
 

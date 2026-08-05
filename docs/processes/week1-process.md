@@ -1,6 +1,8 @@
 # Tuần 1 — Hiểu từng bước triển khai: Nền móng (Scaffolding + Docker + Probe + Strategy)
 
 > Cùng phong cách week2–week5: mỗi mảnh có **(1) làm gì**, **(2) code thật**, **(3) vì sao**, **(4) không làm vậy thì hỏng gì**. Đọc tuần tự là một hành trình học.
+>
+> 🔗 Muốn xem bản tổng hợp theo kiến trúc (không theo tiến trình) của cùng nội dung này, xem [framework-flow-explained.md](../framework-flow-explained.md).
 
 Tuần 1 **chưa viết test nghiệp vụ** — nó dựng **khung xương** để mọi tuần sau đứng lên: khởi tạo dự án (Playwright + TS + lint/format), **Docker hoá** Juice Shop để chạy được offline/CI, **probe (thám thính)** app thật để biết chính xác selector/API/cách lưu session, và viết **chiến lược test**. Cuối tuần: 1 test mẫu chạy xanh against Juice Shop local.
 

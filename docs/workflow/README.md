@@ -9,6 +9,12 @@ handles them.
 > and the current sprint under [`docs/sprints/`](../sprints/). Contribution mechanics
 > live in [CONTRIBUTING.md](../../CONTRIBUTING.md); the _why_ behind the architecture
 > is in [ADRs](../adr/).
+>
+> 📘 **This file is a reference card — it assumes you already know the vocabulary.**
+> To _learn_ the process itself (STLC, one ticket end-to-end, bug lifecycle, test-design
+> techniques, who decides what), read [workflow-explained.md](workflow-explained.md) —
+> the process-side counterpart to
+> [framework-flow-explained.md](../framework-flow-explained.md).
 
 ## 1. Everything is a ticket
 
@@ -28,6 +34,40 @@ coded without an issue — the same discipline as a real backlog.
 and synced automatically (`type/*`, `priority/P0–P3`, `status/*`, `area/*`).
 
 **Board columns:** `Backlog → Ready → In progress → In review → Done`.
+
+### Severity vs Priority
+
+Two different questions, deliberately kept separate — **severity** is decided by the
+tester from evidence, **priority** is a business call that can override it.
+
+|              | Question it answers                               | Who sets it                      |
+| ------------ | ------------------------------------------------- | -------------------------------- |
+| **Severity** | How bad is the technical impact if it happens?    | Reporter (QA), from the evidence |
+| **Priority** | How soon must it be fixed, given everything else? | Whoever owns the backlog         |
+
+**Severity scale** (used in [`docs/bug-reports/`](../bug-reports/)):
+
+| Severity     | Meaning                                                                                  |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| **Critical** | Data loss/exposure, auth bypass, or the core purchase flow is impossible. No workaround. |
+| **High**     | A main flow is broken or silently wrong; a workaround exists but is not obvious.         |
+| **Medium**   | A secondary flow is wrong, or a main flow is wrong only in an edge case.                 |
+| **Low**      | Cosmetic, wording, or a rare edge case with no user impact.                              |
+
+**Priority scale** (the `priority/P0–P3` labels):
+
+| Priority | Expectation                                                      |
+| -------- | ---------------------------------------------------------------- |
+| **P0**   | Drop everything — `main` is red, or the suite cannot run at all. |
+| **P1**   | Committed to the current sprint.                                 |
+| **P2**   | Next sprint / when the area is touched anyway.                   |
+| **P3**   | Backlog; may never be done, and that is a valid outcome.         |
+
+> The two are **not** a straight line. [BUG-001](../bug-reports/BUG-001-registration-drops-security-answer.md)
+> is `High` severity but only `P2` — the data loss is real, but it affects a rarely used
+> account-recovery path. Conversely a `Low`-severity typo on the checkout button could be
+> `P1` if it is on every screenshot in a demo. **Never merge the two into one field** —
+> doing so is how "important but not urgent" bugs get lost.
 
 ## 2. Sprint cadence (2 weeks)
 
@@ -60,6 +100,28 @@ Settings → Branches → Add rule for `main`:
 
 > Full click-by-click setup for labels, the board, the backlog, and this rule:
 > [github-setup.md](github-setup.md).
+
+### When `main` goes red
+
+Branch protection makes this rare, but nightly runs and flaky tests can still break it.
+A red `main` blocks everyone, so it outranks whatever is in progress:
+
+1. **Stop merging.** No new PRs go in while `main` is red — a second change on top makes
+   the cause ambiguous.
+2. **Revert first, diagnose second.** If a specific commit is implicated, revert it to get
+   back to green, then investigate from a branch. Rolling forward with a speculative fix
+   is only acceptable when the fix is obvious and small.
+3. **File it as `P0`.** Even if it is fixed in ten minutes — the ticket is what makes the
+   incident visible in the sprint metrics.
+4. **Decide: bug or flake?** A real regression → a test correctly caught it, fix the code.
+   A non-deterministic failure → it goes through the [flaky policy](flaky-policy.md)
+   (quarantine + root-cause), **not** a retry bump to make the red go away.
+5. **Close the loop.** Whatever the cause, something must prevent a silent repeat: a
+   regression test, a stricter check, or a documented quirk in
+   [exploratory-notes.md](../exploratory-notes.md).
+
+> The rule behind all five: **a red pipeline that people learn to ignore is worse than no
+> pipeline at all.** Red must always mean "stop and look".
 
 ## 4. Definition of Ready / Done
 

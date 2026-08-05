@@ -3,6 +3,8 @@
 > Note cho người **chưa từng test security**. Mục tiêu: đọc hiểu 5 test `@security` hiện có, biết **mỗi test kiểm điều gì trong thực tế**, **phát hiện rủi ro gì**, và **cách viết thêm test an toàn** để tăng coverage.
 >
 > ⚠️ **Khung phòng thủ (defensive):** đây là **QA security testing** — tự động hoá việc **phát hiện & canh gác (regression guard)** các lớp lỗ hổng phổ biến, chạy trên **app training chạy local mà ta sở hữu** (OWASP Juice Shop). Không phải tấn công hệ thống của người khác; không "vũ khí hoá" payload. Chỉ chạy trên môi trường bạn được phép.
+>
+> 🔗 Các lỗ hổng cụ thể được test có bug report riêng ở [docs/bug-reports/](../bug-reports/) (BUG-003 IDOR, BUG-004 SQLi, BUG-005 XSS, BUG-006 CAPTCHA leak); lý do thiết kế "assert hành vi hiện tại" xem [ADR-0005](../adr/0005-security-tests-assert-current-behaviour.md).
 
 ---
 

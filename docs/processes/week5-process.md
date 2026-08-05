@@ -1,6 +1,8 @@
 # Tuần 5 — Hiểu từng bước triển khai: Reporting + Cross-browser + Nightly CI
 
 > Cùng phong cách với `week4-process.md`: mỗi mảnh có **(1) làm gì**, **(2) code thật**, **(3) vì sao**, **(4) không làm vậy thì hỏng gì**. Đọc tuần tự là một hành trình học.
+>
+> 🔗 Bản tổng hợp theo kiến trúc (Allure, cross-browser, nightly CI) của cùng nội dung: [framework-flow-explained.md](../framework-flow-explained.md), [docs/setup/ci.md](../setup/ci.md).
 
 Tuần 5 làm cho bộ test **"trưng bày được"** và **đáng tin trên nhiều trình duyệt**: thêm **Allure trend report**, chạy **đa trình duyệt** (chromium/firefox/webkit), và một **nightly regression** tự publish report lên GitHub Pages. Không thêm test mới — vẫn 52 test — nhưng giờ chạy **× 3 engine = 156 lượt**, đều xanh.
 

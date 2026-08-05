@@ -2,6 +2,8 @@
 
 > Tài liệu này dành cho người muốn **hiểu** và **học cách thiết kế** một framework automation thật: bộ test Playwright + TypeScript chạy E2E cho OWASP Juice Shop. Chúng ta sẽ đi theo đúng thứ tự **một bài test thực sự chạy** — từ lúc chuẩn bị môi trường, `npm test`, Playwright đọc config, resolve fixtures theo chuỗi, chạy test body qua Page Object / API client, assertion, cho tới teardown — và ở mỗi bước đều giải thích **LÝ DO thiết kế (design rationale)**.
 
+> 🔗 **Quan hệ với `docs/processes/`:** file này là bản **tổng hợp theo kiến trúc** (layer by layer) của cùng nội dung được kể theo **tiến trình từng tuần** trong [week1](./processes/week1-process.md)–[week5-process.md](./processes/week5-process.md). Muốn hiểu framework nhanh → đọc file này. Muốn xem _câu chuyện_ từng thứ ra đời khi nào, debug ra sao → đọc các file tuần.
+
 ---
 
 ## 1. Bức tranh tổng thể — các tầng của framework
