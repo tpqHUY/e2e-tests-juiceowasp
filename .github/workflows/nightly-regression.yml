@@ -32,10 +32,10 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -44,7 +44,7 @@ jobs:
         run: npm ci
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -71,7 +71,7 @@ jobs:
       # merged report includes failing tests. Filenames are UUIDs ⇒ no collision.
       - name: Upload shard allure-results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-${{ matrix.shard }}
           path: allure-results
@@ -84,16 +84,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Java (Allure report generation needs a JRE)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -103,7 +103,7 @@ jobs:
 
       # Collect every shard's results into a single allure-results/ directory.
       - name: Download all shard results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: allure-results-*
           path: shard-results
@@ -116,7 +116,7 @@ jobs:
       # Carry Allure trend history across runs (unique key each run, restore the
       # most recent) so the report shows pass/fail trends over time.
       - name: Restore Allure history
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: allure-history-store
           key: allure-history-${{ github.run_id }}
@@ -134,12 +134,12 @@ jobs:
           cp -r allure-report/history allure-history-store
 
       - name: Upload report as the Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: allure-report
 
       - name: Upload merged report as a build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-report
           path: allure-report/
@@ -156,7 +156,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   # ── Make the overall run red if any shard failed (report is already deployed) ──
   status:
@@ -180,16 +180,16 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -207,7 +207,7 @@ jobs:
         run: docker compose down
       - name: Upload flaky report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: flaky-report
           path: playwright-report/
