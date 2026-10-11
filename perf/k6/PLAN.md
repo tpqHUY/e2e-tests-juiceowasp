@@ -1,140 +1,344 @@
-# Lộ trình học k6 — từ beginner đến áp dụng thực tế vào Juice Shop
+# Lộ trình hoàn thiện phần Performance — lấy mục CV làm đích
 
-Lộ trình 6 giai đoạn, đi từ những gì đã làm (baseline + stress test cơ bản)
-tới mức có thể tự viết bộ load test đầy đủ cho 1 dự án thật. Mỗi giai đoạn
-có: mục tiêu, việc cần làm, và tiêu chí để biết đã xong.
+File này trước đây là lộ trình học k6 thuần. Nay đổi thành **kế hoạch giao
+việc có đích cụ thể**: hoàn thành đúng phần trình bày dưới đây cho CV, và mọi
+con số trong đó phải là số **đo thật**, không phải số mock.
 
-Không có deadline cứng — đi theo tốc độ của bạn, đánh dấu `[x]` khi hoàn
-thành từng mục.
+Kỹ năng k6 vẫn học theo thứ tự tăng dần như cũ (request động → auth →
+scenarios → setup/data → output/CI), nhưng mỗi việc giờ gắn với 1 dòng CV cụ
+thể để biết làm xong thì được gì.
+
+Phần **thiết kế** (test luồng nào, tải bao nhiêu, threshold bao nhiêu, cấu
+trúc thư mục) nằm ở [TEST-DESIGN.md](TEST-DESIGN.md) — file này không lặp lại,
+chỉ trỏ tới mục tương ứng. Khái niệm nền tảng ở [LEARNING.md](LEARNING.md).
 
 ---
 
-## Giai đoạn 0 — Đã xong ✅
+## 0. Đích đến — bản trình bày CV
+
+> **OWASP Juice Shop — UI, API & Performance Automation Framework**
+> _Personal Project | Playwright, TypeScript, k6, Zod, Docker, GitHub Actions_
+>
+> - Built a reusable UI/API automation framework using Playwright and
+>   TypeScript, covering authentication, end-to-end workflows, and API
+>   contract validation with Zod.
+> - Developed **69 UI/API test cases** with **207 test executions** across
+>   Chromium, Firefox, and WebKit, implementing isolated parallel execution
+>   and automated regression reporting.
+> - Extended the framework with k6 performance testing across **3 REST API
+>   scenarios**, simulating up to **100 virtual users** and measuring
+>   throughput, p95 response time, and request failure rate.
+> - Evaluated API performance under load, achieving **185 requests/second,
+>   280 ms p95 latency, and 0.35% request failure rate** in a **10-minute
+>   load test**.
+> - Integrated performance smoke tests into **GitHub Actions**, with
+>   threshold-based pass/fail checks and **scheduled performance runs** to
+>   detect latency regressions.
+
+### Trạng thái từng dòng
+
+| Dòng CV                            | Trạng thái        | Thiếu gì                                                                                   |
+| ---------------------------------- | ----------------- | ------------------------------------------------------------------------------------------ |
+| 1. Framework + auth + Zod contract | ✅ **Đã đúng**    | Không thiếu gì — `zod` đã dùng trong API schema, auth flow + e2e đã có                     |
+| 2. 69 test cases / 207 executions  | ⚠️ **Cần xác nhận lại số** | Số test đếm bằng grep hiện ra 68 (37 UI + 31 API). Phải chạy `--list` lấy số thật → xem [§1](#1-chốt-số-liệu-cho-dòng-2--ui--api) |
+| 3. 3 REST API scenarios, 100 VU    | ⚠️ **Nửa đúng**   | Có 3 file nhưng 2 file cùng gọi `/api/Products` → chưa phải 3 luồng khác nhau → [§2](#2-ba-scenario-thật-cho-dòng-3) |
+| 4. 185 req/s, 280ms p95, 0.35% fail, 10 phút | ❌ **Số mock** | Chưa từng chạy sustained 10 phút, chưa export JSON → [§3](#3-số-liệu-thật-cho-dòng-4)      |
+| 5. GitHub Actions + scheduled perf run | ❌ **Chưa có** | `.github/workflows/` chưa có workflow nào chạy k6 → [§4](#4-ci-cho-dòng-5)                 |
+
+### Nguyên tắc xuyên suốt (quan trọng hơn cả checklist)
+
+1. **Không ghi số mình chưa đo.** Máy local đã xác nhận CPU-bound
+   ([LEARNING.md Case 5](LEARNING.md#case-5-liên-hệ-trực-tiếp--juice-shop-local-bão-hoà-cpu-đơn-luồng)),
+   nên số thật có thể **tệ hơn** số mock (throughput thấp hơn 185 req/s, p95
+   cao hơn 280ms). Ghi đúng số đo được — số thật kèm giải thích nguyên nhân
+   thuyết phục hơn số đẹp không bảo vệ được khi bị hỏi.
+2. **Mỗi số liệu phải trả lời được "tại sao".** Fail rate 0.35% là do đâu —
+   timeout, 500, hay script sai? Xem breakdown lỗi trong summary, không chỉ
+   nhìn % tổng. Dùng quy trình ở
+   [LEARNING.md §7](LEARNING.md#7-quy-trình-điều-tra-hiệu-năng-áp-dụng-lại-được-cho-mọi-bài-toán-khác).
+3. **Chạy ≥ 3 lần mới lấy số.** 1 lần chạy là 1 mẫu, không phải kết quả
+   ([LEARNING.md Bước 5](LEARNING.md#bước-5--chạy-có-kiểm-soát-không-chỉ-chạy-1-lần-rồi-kết-luận)).
+   Máy đang chạy việc khác → số lệch hẳn.
+4. **Không tối ưu Juice Shop.** Đây là app OWASP dựng sẵn để test, không phải
+   code của mình. Việc của bộ test là **đo và giải thích**, không phải sửa app
+   cho nhanh hơn.
+
+---
+
+## Đã xong ✅
+
+### Giai đoạn 0 — Nền tảng
 
 - [x] Cài k6, chạy được `k6 version`
-- [x] Chạy baseline test đơn giản (GET, ramping VU nhẹ) — [get-products.js](get-products.js)
-- [x] Đọc hiểu report: checks, THRESHOLDS, http_req_duration, http_req_failed
-- [x] Chạy stress test, thấy latency tăng theo tải — [stress-products.js](stress-products.js)
-- [x] Xác nhận nguyên nhân bằng `docker stats` (CPU-bound)
+- [x] Baseline test (GET, ramping VU nhẹ) — [get-products.js](get-products.js)
+- [x] Đọc hiểu report: checks, thresholds, `http_req_duration`, `http_req_failed`
+- [x] Stress test, thấy latency tăng theo tải — [stress-products.js](stress-products.js)
+- [x] Xác nhận nguyên nhân nghẽn bằng `docker stats` (CPU-bound)
 - [x] Nắm khái niệm nền tảng — [LEARNING.md](LEARNING.md)
 
----
+### Giai đoạn 1 — Request có dữ liệu động
 
-## Giai đoạn 1 — Request có dữ liệu động (params, body, header)
-
-**Mục tiêu:** viết được request phức tạp hơn GET đơn giản — POST với JSON
-body, custom header, query param.
-
-Việc cần làm:
-
-- [ ] Viết script gọi `POST /api/Feedbacks` gửi JSON body (comment, rating)
-- [ ] Dùng `http.get()` với query param, VD `/rest/products/search?q=juice`
-- [ ] Thử `params` object của k6 (`headers`, `tags`) trong request
-
-Tiêu chí xong: viết được 1 request POST có body JSON và kiểm tra response
-bằng `check()`, không cần xem tài liệu để nhớ cú pháp cơ bản.
-
-Tài liệu: https://grafana.com/docs/k6/latest/using-k6/http-requests/
+- [x] `POST /api/Feedbacks` với JSON body — [search-and-feedback.js](search-and-feedback.js)
+- [x] `http.get()` với query param (`/rest/products/search?q=juice`)
+- [x] `params` object (`headers`, `tags`) trong request
+- [x] Correlation: lấy dữ liệu động từ response trước (CAPTCHA) dùng cho request sau
 
 ---
 
-## Giai đoạn 2 — Auth flow (login, giữ token, dùng lại)
+## 1. Chốt số liệu cho dòng 2 — UI & API
 
-**Mục tiêu:** mô phỏng 1 user thật: login 1 lần, dùng token cho các request
-tiếp theo trong cùng iteration.
+Dòng này **không phụ thuộc k6**, làm được ngay, nhưng phải chốt đúng số.
 
-Việc cần làm:
+- [ ] **1.1** `npm ci` (hiện `node_modules/` chưa cài nên không chạy được
+      `--list`)
+- [ ] **1.2** Đếm số test case thật:
+      `npx playwright test tests/ui tests/api --list --project=chromium`
+      → dòng cuối in ra tổng số test. Đây là **số test case** (69?).
+- [ ] **1.3** Đếm số lần thực thi: `npx playwright test --list` (không giới
+      hạn project) → tổng số test × số project áp dụng. Đây là **số
+      executions** (207?).
+- [ ] **1.4** Nếu số lệch so với 69/207 → sửa CV theo số thật, **không** thêm
+      test chỉ để khớp số đã viết.
 
-- [ ] Viết script `POST /rest/user/login` với email/password, lấy `authentication.token` từ response JSON
-- [ ] Gắn token vào header `Authorization: Bearer <token>` cho request kế tiếp (VD lấy giỏ hàng `/rest/basket/:id`)
-- [ ] Xử lý trường hợp login fail (check status trước khi dùng token) — tránh lỗi `undefined` lan sang các bước sau
+Tiêu chí xong: 2 con số trong dòng 2 lấy trực tiếp từ output `--list`, có thể
+chạy lại để chứng minh bất cứ lúc nào.
 
-Tiêu chí xong: 1 script chạy được chuỗi login → gọi API cần xác thực, có
-check ở cả 2 bước.
-
-Kiến thức mới: JSON parsing (`res.json()`), biến trong scope của 1 iteration
-(khác với biến global — token không dùng chung giữa các VU).
-
----
-
-## Giai đoạn 3 — Nhiều luồng người dùng cùng lúc (scenarios)
-
-**Mục tiêu:** hiểu và dùng được `options.scenarios` để mô phỏng nhiều hành
-vi người dùng khác nhau chạy song song trong cùng 1 lần test (thay vì 1
-kịch bản `default function()` cho tất cả).
-
-Việc cần làm:
-
-- [ ] Đọc về các executor: `constant-vus`, `ramping-vus`, `constant-arrival-rate`
-- [ ] Viết 1 file có 2 scenario chạy song song: VD 70% VU chỉ duyệt sản phẩm (đọc), 30% VU login + thêm giỏ hàng (ghi) — mô phỏng tỉ lệ hành vi thật của user
-- [ ] Hiểu sự khác biệt giữa "VU-based" (constant-vus/ramping-vus) và "rate-based" (constant-arrival-rate) — cái nào phù hợp khi nào
-
-Tiêu chí xong: giải thích được (bằng lời của mình) tại sao
-`constant-arrival-rate` mô phỏng tải thực tế chuẩn hơn `constant-vus` trong
-nhiều trường hợp (vì throughput không phụ thuộc vào response time).
-
-Tài liệu: https://grafana.com/docs/k6/latest/using-k6/scenarios/
+> Ghi chú: "isolated parallel execution" đã đúng (`fullyParallel: true`,
+> `workers` tách riêng CI/local trong [playwright.config.ts](../../playwright.config.ts)),
+> "automated regression reporting" cũng đã đúng (Allure + trend history deploy
+> lên GitHub Pages trong [nightly-regression.yml](../../.github/workflows/nightly-regression.yml)).
 
 ---
 
-## Giai đoạn 4 — Thiết lập bài test đúng chuẩn (setup/teardown, data, thresholds theo tag)
+## 2. Ba scenario thật cho dòng 3
 
-**Mục tiêu:** viết bài test có chuẩn bị dữ liệu đầu vào và dọn dẹp sau khi
-chạy — gần với cách viết test thật trong CI, không chỉ script học tập.
+Vấn đề hiện tại: `get-products.js` và `stress-products.js` **cùng gọi 1
+endpoint** `/api/Products` — chỉ khác mức tải. Nói "3 REST API scenarios" mà 2
+cái trùng endpoint thì hụt khi bị hỏi sâu.
 
-Việc cần làm:
+Mục tiêu: **3 scenario theo 3 luồng nghiệp vụ khác nhau**, mỗi file chạy độc
+lập được. Bám theo cấu trúc đã thiết kế ở
+[TEST-DESIGN.md §5](TEST-DESIGN.md#5-cấu-trúc-thư-mục-đề-xuất) và danh sách
+luồng ở [§2](TEST-DESIGN.md#2-chọn-luồng-nghiệp-vụ-cần-test-bước-3--tính-đại-diện).
 
-- [ ] Dùng `setup()` để tạo user test (hoặc lấy token) 1 lần trước khi test chạy, truyền dữ liệu đó vào `default function()`
-- [ ] Dùng `teardown()` để dọn dữ liệu test đã tạo (nếu cần)
-- [ ] Threshold theo từng nhóm request riêng bằng `tags` (VD: threshold riêng cho endpoint login khác với endpoint search)
-- [ ] Test với dữ liệu ngẫu nhiên/đa dạng thay vì hardcode 1 giá trị (dùng `SharedArray` đọc từ file CSV/JSON danh sách sản phẩm, user...)
+### 2.1 Hạ tầng dùng chung
 
-Tiêu chí xong: viết được 1 bài test có setup tạo dữ liệu, chạy nhiều VU với
-dữ liệu khác nhau (không phải tất cả VU gọi y hệt 1 request).
+- [ ] **2.1** Tạo `lib/config.js`: `BASE_URL` từ `__ENV`, hằng số các mốc VU
+      (smoke 2 / baseline 5 / load 25 / stress 100), helper `login()` trả
+      token. Tránh copy-paste `BASE_URL` và logic login qua từng file.
+      _(= việc 6.1 trong TEST-DESIGN.md)_
+
+### 2.2 Scenario A — Browse (đọc, không auth)
+
+- [ ] **2.2** `scenarios/browse-products.js`: 1 VU luân phiên `GET
+      /api/Products` + `GET /rest/products/search?q=` với từ khoá khác nhau,
+      mô phỏng user duyệt sản phẩm. Tận dụng logic đã có ở `get-products.js`
+      và phần search ở `search-and-feedback.js`.
+- [ ] **2.3** Dùng `SharedArray` cho danh sách từ khoá search thay vì hardcode
+      `q=juice` — để các VU không gọi y hệt 1 request (cache DB/app sẽ làm số
+      đẹp giả tạo).
+      _(kỹ thuật Giai đoạn 4 cũ: data-driven)_
+
+### 2.3 Scenario B — Auth flow (ghi + auth, phần chậm nhất)
+
+Đây là **kỹ năng mới quan trọng nhất** còn lại (Giai đoạn 2 trong plan cũ):
+login giữ token rồi dùng cho request sau.
+
+- [ ] **2.4** `scenarios/auth-flow.js`: `POST /rest/user/login` lấy
+      `authentication.token` từ response JSON, gắn vào header `Authorization:
+      Bearer <token>` cho request kế tiếp (`GET /rest/basket/:id`).
+- [ ] **2.5** Check status **trước khi** dùng token — login fail thì dừng
+      iteration, tránh lỗi `undefined` lan sang các bước sau (cùng pattern đã
+      dùng với CAPTCHA ở `search-and-feedback.js`).
+- [ ] **2.6** Nhánh đăng ký user mới (`POST /api/Users`) với email ngẫu nhiên
+      hậu tố `${__VU}-${__ITER}` — tránh lỗi duplicate email khi nhiều VU chạy
+      song song.
+- [ ] **2.7** Threshold **riêng cho nhóm auth** bằng `tags` — endpoint login
+      chậm hơn hẳn endpoint đọc vì bcrypt hash tốn CPU. Dùng mốc ở
+      [TEST-DESIGN.md §4](TEST-DESIGN.md#4-threshold-cho-từng-loại-luồng-bước-4)
+      làm điểm khởi đầu, chỉnh lại theo số đo thật.
+
+### 2.4 Scenario C — Purchase journey (hỗn hợp, nhiều scenario song song)
+
+- [ ] **2.8** `scenarios/purchase-journey.js`: login → search → thêm giỏ hàng
+      (`POST /api/BasketItems`) → checkout. Endpoint/payload cụ thể lấy từ
+      [tests/api/basket.api.spec.ts](../../tests/api/basket.api.spec.ts) và
+      [tests/e2e/purchase-journey.spec.ts](../../tests/e2e/purchase-journey.spec.ts)
+      — đã có sẵn trong repo, không cần đoán.
+- [ ] **2.9** Dùng `options.scenarios` chạy **2 luồng song song**: ~70% VU chỉ
+      browse (đọc), ~30% VU đi hết luồng mua hàng — mô phỏng tỉ lệ hành vi
+      thật, tránh lỗi "test toàn đọc nên đánh giá quá lạc quan"
+      ([LEARNING.md Case 1](LEARNING.md#case-1--test-pass-nhưng-production-vẫn-sập-thiếu-tính-đại-diện-của-kịch-bản)).
+- [ ] **2.10** Dùng `setup()` tạo/lấy token user test 1 lần trước khi test
+      chạy, truyền vào `default function()` — thay vì mỗi VU tự login (login
+      lặp lại làm nhiễu số liệu của chính luồng đang đo).
+- [ ] **2.11** Hiểu và giải thích được khác biệt `constant-vus` /
+      `ramping-vus` / `constant-arrival-rate` — tại sao arrival-rate mô phỏng
+      tải thật chuẩn hơn (throughput không phụ thuộc response time). Câu này
+      hay bị hỏi trong interview khi thấy k6 trong CV.
+
+Tiêu chí xong §2: 3 file trong `scenarios/` chạy độc lập được qua `k6 run`,
+không trùng endpoint chính, ít nhất 1 file có auth và 1 file có nhiều scenario
+song song. Giữ `get-products.js` / `stress-products.js` làm ví dụ học tập, nhưng
+**không đếm chúng** vào "3 scenarios" của CV.
 
 ---
 
-## Giai đoạn 5 — Xuất kết quả & tích hợp CI
+## 3. Số liệu thật cho dòng 4
 
-**Mục tiêu:** kết quả test không chỉ nằm trên terminal — lưu lại để so sánh
-qua thời gian, và tự động hoá trong pipeline.
+Thay toàn bộ số mock (185 req/s, 280ms p95, 0.35% fail) bằng số đo được.
 
-Việc cần làm:
+### 3.1 Chuẩn bị chạy được 10 phút
 
-- [ ] Xuất kết quả ra JSON: `k6 run --out json=result.json ...`, thử đọc lại file để hiểu cấu trúc dữ liệu thô
-- [ ] (Tuỳ chọn, nếu muốn học sâu hơn) Thử k6 Cloud hoặc xuất qua InfluxDB + Grafana để có dashboard trực quan theo thời gian
-- [ ] Thêm 1 npm script trong `package.json` của project này, VD `"perf:baseline"` và `"perf:stress"`, để chạy k6 nhất quán như các lệnh test khác trong repo
-- [ ] (Tuỳ chọn) Thêm 1 job load test riêng vào CI (không chạy mỗi lần push — chỉ chạy theo lịch hoặc thủ công, vì load test tốn thời gian và cần môi trường ổn định)
+- [ ] **3.1** Thêm 1 stage **sustained load** đủ dài. Hiện `stress-products.js`
+      chỉ tổng ~90s (peak 30s) → không thể claim "10-minute load test". Cần
+      profile dạng: ramp-up 1 phút → **giữ tải 8 phút** → ramp-down 1 phút.
+- [ ] **3.2** Chốt mức tải dùng để báo cáo. CV viết "up to 100 virtual users"
+      → mốc stress 100 VU (đã có), nhưng **số đẹp để báo cáo** (throughput,
+      p95, fail rate) nên lấy ở mốc **load 25 VU** — tải mà hệ thống còn chạy
+      ổn định. Nếu lấy số ở 100 VU trên máy CPU-bound thì p95 sẽ rất tệ.
+      → Chạy **cả 2 mốc**, báo cáo cả 2, giải thích vì sao khác nhau.
+- [ ] **3.3** `.gitignore` thêm `perf/k6/results/` (chưa có) — JSON output
+      không nên commit.
+- [ ] **3.4** npm script trong [package.json](../../package.json):
+      `perf:smoke`, `perf:baseline`, `perf:load`, `perf:stress` — mỗi cái
+      `k6 run --out json=perf/k6/results/<tên>-<ngày>.json <file>`. Để chạy
+      nhất quán như các lệnh `test:*` khác trong repo.
+      _(= việc 6.6 trong TEST-DESIGN.md)_
 
-Tiêu chí xong: có thể chạy `npm run perf:baseline` từ project root, kết quả
-được lưu lại thành file để so sánh giữa các lần chạy.
+### 3.2 Chạy và đo
+
+- [ ] **3.5** Chạy **mỗi scenario ≥ 3 lần** ở mốc load, máy không làm việc
+      khác. Ghi lại cả 3 lần, không chỉ lần đẹp nhất.
+- [ ] **3.6** Chạy 1 lần sustained **10 phút** đầy đủ (mốc đã chốt ở 3.2) —
+      đây là lần chạy dùng cho dòng CV.
+- [ ] **3.7** Trong lúc chạy, mở terminal khác: `docker stats juice-shop` —
+      xác nhận lại nghẽn ở đâu (CPU? RAM?) để giải thích được số liệu.
+- [ ] **3.8** Mở file JSON output, hiểu cấu trúc dữ liệu thô (mỗi dòng 1 data
+      point) — để biết số trong summary đến từ đâu, không chỉ tin bảng tổng.
+
+### 3.3 Phân tích (phần tạo ra giá trị thật, không phải chỉ copy số)
+
+- [ ] **3.9** Trích 3 con số cho CV từ summary: `http_reqs` rate (req/s),
+      `http_req_duration` p(95), `http_req_failed` rate.
+- [ ] **3.10** **Lý giải fail rate**: nếu > 0%, lỗi là gì — status 500?
+      timeout? hay script sai (VD CAPTCHA/token)? Lỗi do script thì **phải
+      sửa script**, không được tính là lỗi của app.
+- [ ] **3.11** **Lý giải p95**: so với baseline 5 VU (p95 ~15ms đã đo) thì
+      chậm đi bao nhiêu lần, và vì sao (bão hoà CPU đơn luồng Node.js).
+- [ ] **3.12** **Lý giải throughput**: throughput có tăng tuyến tính theo VU
+      hay bão hoà/tụt? Nếu tụt → đó là dấu hiệu quan trọng
+      ([LEARNING.md Case 2](LEARNING.md#case-2--càng-nhiều-vu-throughput-càng-giảm-không-phải-tăng-chậm-dần-mà-tụt-hẳn)).
+- [ ] **3.13** Viết `RESULTS.md` trong `perf/k6/`: bảng số liệu baseline/
+      load/stress cho từng scenario + đoạn giải thích ngắn cho mỗi mốc. Đây
+      vừa là mốc so sánh về sau, vừa là tài liệu để trả lời khi bị hỏi về con
+      số trong CV.
+- [ ] **3.14** Cập nhật lại threshold trong các script theo số đo thật (đừng
+      để threshold đặt tay từ trước lệch hẳn thực tế), giữ margin hợp lý —
+      không đặt sát baseline.
+
+Tiêu chí xong §3: `RESULTS.md` có đủ 3 số cho dòng CV, lấy từ 1 lần chạy 10
+phút cụ thể (ghi rõ ngày, mốc VU, scenario nào), và mỗi số có 1-2 câu giải
+thích nguyên nhân.
 
 ---
 
-## Giai đoạn 6 — Áp dụng thực tế lên toàn bộ Juice Shop
+## 4. CI cho dòng 5
 
-**Mục tiêu:** không chỉ 1 endpoint đơn lẻ nữa — có bộ test hiệu năng phủ các
-luồng chính của app, giống cách bạn đã làm E2E functional test.
+Hiện `.github/workflows/` có `smoke.yml`, `nightly-regression.yml`,
+`codeql.yml`, `labels.yml` — **không có workflow nào chạy k6**. Dòng 5 của CV
+chưa đúng cho tới khi làm xong mục này.
 
-Gợi ý các luồng đáng test (ưu tiên theo mức độ quan trọng với người dùng
-thật):
+- [ ] **4.1** Tạo `.github/workflows/performance.yml`. Copy cấu trúc từ
+      [nightly-regression.yml](../../.github/workflows/nightly-regression.yml)
+      (đã có sẵn: `schedule` cron, `workflow_dispatch`, `docker compose up -d`,
+      `npm run app:wait`, teardown `if: always()`, upload artifact).
+- [ ] **4.2** Cài k6 trong workflow (`grafana/setup-k6-action`, hoặc apt
+      install theo docs k6).
+- [ ] **4.3** **Perf smoke job** — chạy mỗi lần schedule, tải nhẹ (mốc
+      smoke/baseline), **gate pass/fail bằng threshold**: k6 tự exit code ≠ 0
+      khi vi phạm `thresholds`, nên chỉ cần không `|| true` là CI tự đỏ. Đây
+      đúng nghĩa "threshold-based pass/fail checks" trong CV.
+- [ ] **4.4** `schedule:` cron chạy định kỳ (VD hàng tuần, hoặc hàng ngày
+      lệch giờ với nightly-regression để không tranh runner). **Không** chạy
+      mỗi push — load test tốn thời gian và cần môi trường ổn định.
+- [ ] **4.5** Upload JSON result làm artifact (`actions/upload-artifact`) để
+      so sánh giữa các lần chạy, retention vài ngày.
+- [ ] **4.6** ⚠️ Chốt threshold cho CI **theo số đo trên runner GitHub, không
+      phải số trên máy local** — runner yếu hơn/khác hẳn máy local, threshold
+      local sẽ làm CI đỏ liên tục. Chạy `workflow_dispatch` vài lần lấy
+      baseline của runner trước, rồi mới đặt threshold.
+      _(Đây là lý do [TEST-DESIGN.md §7](TEST-DESIGN.md#7-việc-không-làm-và-lý-do)
+      ban đầu ghi "không gate CI ngay từ đầu" — vẫn đúng: thu baseline runner
+      trước, gate sau.)_
 
-- [ ] Luồng duyệt sản phẩm: search, xem chi tiết sản phẩm
-- [ ] Luồng mua hàng: login → thêm giỏ hàng → checkout
-- [ ] Luồng đăng ký user mới
-- [ ] So sánh hiệu năng endpoint có auth vs không auth (auth thường chậm hơn do bcrypt/JWT)
+Tiêu chí xong §4: workflow chạy được qua `workflow_dispatch`, đỏ khi threshold
+bị vi phạm, xanh khi đạt, và có `schedule` cron hoạt động. Chứng minh được
+bằng link Actions run.
 
-Tiêu chí xong: có thư mục `perf/k6/scenarios/` với vài file test theo luồng
-nghiệp vụ thật, không chỉ theo endpoint đơn lẻ — và 1 báo cáo ngắn (có thể
-là README riêng) tóm tắt hiệu năng baseline của Juice Shop local trên máy
-bạn, để dùng làm mốc so sánh sau này.
+---
+
+## 5. (Tuỳ chọn) Nâng cấp sau — không cần cho CV hiện tại
+
+- [ ] **5.1** Script so sánh 2 file JSON (baseline cũ vs mới) → cảnh báo nếu
+      p95 tệ đi quá X%. Biến bộ test thành performance regression gate thật
+      sự. _(= việc 6.7 TEST-DESIGN.md)_
+- [ ] **5.2** Xuất qua InfluxDB + Grafana để có dashboard theo thời gian thay
+      vì so sánh JSON tay.
+- [ ] **5.3** Soak test (chạy nhiều giờ) tìm memory leak — chạy tay 1 lần để
+      học kỹ thuật, không đưa vào CI
+      ([LEARNING.md Case 3](LEARNING.md#case-3--hiệu-năng-tốt-lúc-đầu-tệ-dần-sau-vài-giờ-soak-test-mới-phát-hiện-được)).
+- [ ] **5.4** `teardown()` dọn dữ liệu test đã tạo (user đăng ký, feedback) —
+      hiện mỗi lần chạy để lại rác trong DB; `docker compose restart` reset
+      được nên chưa gấp.
+
+---
+
+## 6. Thứ tự làm & ước lượng
+
+Làm theo thứ tự này vì mỗi bước tạo tiền đề cho bước sau (không có scenario
+thì không có số liệu; không có số liệu thì không chốt được threshold CI).
+
+| Thứ tự | Việc                     | Mục  | Ước lượng  | Chặn việc gì                     |
+| ------ | ------------------------ | ---- | ---------- | -------------------------------- |
+| 1      | Chốt số UI/API           | §1   | ~20 phút   | Dòng 2 CV (độc lập, làm trước cho xong) |
+| 2      | `lib/config.js`          | §2.1 | ~30 phút   | Mọi scenario sau                 |
+| 3      | Scenario browse          | §2.2 | ~1 giờ     | —                                |
+| 4      | Scenario auth            | §2.3 | ~2 giờ     | Scenario purchase (cần token)    |
+| 5      | Scenario purchase        | §2.4 | ~2-3 giờ   | Lần chạy báo cáo                 |
+| 6      | npm scripts + results/   | §3.1 | ~30 phút   | Lần chạy báo cáo                 |
+| 7      | Chạy + đo (≥3 lần/mốc)   | §3.2 | ~2 giờ (phần lớn là chờ) | Phân tích        |
+| 8      | Phân tích + `RESULTS.md` | §3.3 | ~2 giờ     | Threshold CI                     |
+| 9      | Workflow CI              | §4   | ~2 giờ     | —                                |
+
+**Tổng ~3-4 ngày làm tập trung**, hoặc 1-2 tuần nếu làm part-time. Phần lâu
+nhất không phải viết code mà là bước 7-8: chạy nhiều lần rồi hiểu số liệu.
+
+---
+
+## 7. Checklist cuối — CV đúng khi nào
+
+Trước khi đưa bản CV ở [§0](#0-đích-đến--bản-trình-bày-cv) ra ngoài, tự kiểm:
+
+- [ ] Mọi con số đều **trỏ về được 1 lần chạy/output cụ thể** (ghi trong
+      `RESULTS.md` hoặc output `--list`), không có số nào là ước lượng.
+- [ ] Bỏ chữ "**mock** benchmark" trong dòng 4 — nếu còn phải để chữ "mock"
+      thì nghĩa là chưa làm xong §3.
+- [ ] "3 REST API scenarios" trỏ được tới 3 file khác nhau trong
+      `scenarios/`, không trùng endpoint chính.
+- [ ] "Scheduled performance runs" trỏ được tới 1 link GitHub Actions run thật.
+- [ ] Trả lời được 3 câu hay bị hỏi nhất:
+      1. Tại sao p95 là con số đó, nghẽn ở đâu, biết bằng cách nào?
+      2. Fail rate đến từ lỗi gì?
+      3. Vì sao chọn mốc VU đó, không phải mốc khác?
 
 ---
 
 ## Cách dùng file này
 
-- Đánh dấu `[x]` trực tiếp trong file này khi hoàn thành từng mục.
-- Không cần làm tuần tự cứng nhắc — nếu 1 mục ở giai đoạn sau tò mò trước,
-  cứ thử, miễn đã nắm giai đoạn 0-1 (nền tảng request cơ bản).
-- Khi làm xong 1 giai đoạn, có thể quay lại hỏi để cùng thực hành trực tiếp
-  (giống cách đã làm giai đoạn 0) thay vì tự đọc lý thuyết suông.
+- Đánh dấu `[x]` trực tiếp khi hoàn thành từng mục.
+- Không cần làm tuần tự cứng nhắc trong cùng 1 mục, nhưng **nên theo thứ tự
+  ở [§6](#6-thứ-tự-làm--ước-lượng) giữa các mục** vì có phụ thuộc.
+- Khi xong 1 mục lớn, cập nhật lại [README.md](README.md) và
+  [TEST-DESIGN.md](TEST-DESIGN.md) nếu cấu trúc thư mục thật đã khác tài liệu
+  — không để tài liệu lệch với code.
