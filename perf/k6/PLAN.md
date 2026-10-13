@@ -121,12 +121,26 @@ lập được. Bám theo cấu trúc đã thiết kế ở
 [TEST-DESIGN.md §5](TEST-DESIGN.md#5-cấu-trúc-thư-mục-đề-xuất) và danh sách
 luồng ở [§2](TEST-DESIGN.md#2-chọn-luồng-nghiệp-vụ-cần-test-bước-3--tính-đại-diện).
 
-### 2.1 Hạ tầng dùng chung
+### 2.1 Hạ tầng dùng chung ✅
 
-- [ ] **2.1** Tạo `lib/config.js`: `BASE_URL` từ `__ENV`, hằng số các mốc VU
-      (smoke 2 / baseline 5 / load 25 / stress 100), helper `login()` trả
-      token. Tránh copy-paste `BASE_URL` và logic login qua từng file.
-      _(= việc 6.1 trong TEST-DESIGN.md)_
+- [x] **2.1** Tạo [lib/config.js](lib/config.js): `BASE_URL` từ `__ENV`, hằng số
+      các mốc VU (smoke 2 / baseline 5 / load 25 / stress 100), `ENDPOINTS`,
+      `TEST_ACCOUNT`, helper `jsonParams()` + `login()` trả session
+      `{token, bid, email}`. Tránh copy-paste `BASE_URL` và logic login qua
+      từng file. _(= việc 6.1 trong TEST-DESIGN.md)_
+- [x] **2.1b** [lib/config.smoke.js](lib/config.smoke.js) — smoke test cho
+      chính config.js (1 VU, 1 iteration). Verify: hằng số hợp lệ,
+      `jsonParams()` dựng header đúng, `login()` lấy được token **dùng được
+      thật** (gọi thử `GET /rest/basket/:id`), và login sai mật khẩu trả `null`
+      chứ không throw.
+
+      Vì sao cần: cả 3 scenario bên dưới đều dựng trên `login()`. Nếu helper
+      lấy sai field token, scenario vẫn "chạy được" nhưng đo đường lỗi 401
+      thay vì đường thành công — số liệu trông bình thường mà sai hoàn toàn.
+      Đã xác nhận smoke bắt được lỗi thật: đổi `ENDPOINTS.login` thành path
+      sai → k6 exit code 99 (đỏ); trả lại đúng → exit 0.
+
+      Chạy: `k6 run perf/k6/lib/config.smoke.js` (cần app đang chạy).
 
 ### 2.2 Scenario A — Browse (đọc, không auth)
 

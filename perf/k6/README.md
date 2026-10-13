@@ -113,7 +113,39 @@ container) không đủ xử lý đồng thời. Muốn tìm điểm hệ thốn
 trả lỗi (không chỉ chậm), thử tăng `target` trong `options.stages` của file
 này lên cao hơn (VD 300–500 VU) và xem `http_req_failed` bắt đầu > 0%.
 
-## 6. Các bước tiếp theo khi đã quen
+## 6. Cấu hình dùng chung (`lib/config.js`)
+
+[lib/config.js](lib/config.js) giữ những thứ mọi kịch bản đều cần, để không
+lặp lại ở từng file: `BASE_URL`, các mốc VU (`smoke` 2 / `baseline` 5 /
+`load` 25 / `stress` 100), danh sách `ENDPOINTS`, và 2 helper:
+
+- `jsonParams(token, name)` — dựng header JSON, tự gắn `Authorization: Bearer`
+  nếu có token, gắn `tags.name` để lọc số liệu riêng trong report.
+- `login(email, password)` — đăng nhập, trả `{ token, bid, email }`, hoặc
+  `null` nếu login fail (không throw, để iteration không bị huỷ giữa đường).
+
+File này **không chạy trực tiếp được** bằng `k6 run` (không có
+`export default function()`) — nó là thư viện cho các kịch bản import vào.
+
+Để kiểm tra helper còn hoạt động đúng (sau khi sửa config, hoặc khi Juice Shop
+lên version mới làm đổi response):
+
+```powershell
+k6 run perf/k6/lib/config.smoke.js
+```
+
+Bài smoke này chạy 1 VU / 1 iteration, không đo hiệu năng — chỉ xác nhận
+`login()` lấy được token **dùng được thật** (có gọi thử 1 endpoint cần xác
+thực). Nếu nó đỏ, đừng tin số liệu của các kịch bản khác: chúng có thể đang
+đo đường lỗi 401 thay vì đường thành công.
+
+> Trong output sẽ thấy 2 dấu ✗ ở `login status is 200` / `login trả về token`
+> với tỉ lệ 50% — đây là **đúng thiết kế**: bài smoke cố ý gọi `login()` với
+> mật khẩu sai ở bước cuối để xác nhận helper trả `null` chứ không throw.
+> Threshold chỉ tính các check của riêng smoke (`checks{kind:smoke}`), nên
+> k6 vẫn exit 0 khi mọi thứ đúng.
+
+## 7. Các bước tiếp theo khi đã quen
 
 Một vài hướng để mở rộng khi đã hiểu 2 kịch bản trên (không làm ngay, chỉ để
 tham khảo khi sẵn sàng):

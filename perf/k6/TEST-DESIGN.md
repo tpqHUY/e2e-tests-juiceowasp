@@ -112,7 +112,8 @@ perf/k6/
 ├── get-products.js            # baseline demo ban đầu (đã có, giữ làm ví dụ học tập)
 ├── stress-products.js         # stress demo ban đầu (đã có, giữ làm ví dụ học tập)
 ├── lib/
-│   └── config.js               # BASE_URL, các mốc VU dùng chung, helper login lấy token
+│   ├── config.js               # BASE_URL, mốc VU, ENDPOINTS, helper login lấy token (đã có ✅)
+│   └── config.smoke.js         # smoke test cho chính config.js (đã có ✅)
 ├── scenarios/
 │   ├── browse-products.js      # luồng đọc: list + search (không auth)
 │   ├── auth-flow.js            # luồng login + đăng ký
@@ -131,8 +132,11 @@ perf/k6/
 Thứ tự này bám theo mức độ phức tạp kỹ thuật tăng dần, khớp với các giai
 đoạn trong [PLAN.md](PLAN.md):
 
-- [ ] **6.1** Tạo `lib/config.js`: `BASE_URL` từ `__ENV`, hằng số các mốc VU
-      (smoke/baseline/load/stress) để không hardcode rải rác từng file.
+- [x] **6.1** Tạo [lib/config.js](lib/config.js): `BASE_URL` từ `__ENV`, hằng
+      số các mốc VU (smoke/baseline/load/stress), `ENDPOINTS`, helper
+      `jsonParams()` + `login()` — để không hardcode rải rác từng file. Kèm
+      [lib/config.smoke.js](lib/config.smoke.js) verify helper hoạt động đúng
+      trước khi các scenario dựng lên trên nó.
 - [ ] **6.2** `scenarios/browse-products.js`: gộp GET Products + GET search
       vào 1 kịch bản (VU luân phiên gọi cả 2 endpoint, mô phỏng user duyệt
       sản phẩm). Tận dụng lại logic đã có ở `get-products.js`.
