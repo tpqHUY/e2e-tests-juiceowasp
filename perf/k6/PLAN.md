@@ -207,24 +207,74 @@ Hai điểm rút ra:
    chỉ là xếp hàng chờ CPU. Khớp với kết luận CPU-bound đã có ở
    [LEARNING.md Case 5](LEARNING.md#case-5-liên-hệ-trực-tiếp--juice-shop-local-bão-hoà-cpu-đơn-luồng).
 
-### 2.3 Scenario B — Auth flow (ghi + auth, phần chậm nhất)
+### 2.3 Scenario B — Auth flow (ghi + auth) ✅
 
-Đây là **kỹ năng mới quan trọng nhất** còn lại (Giai đoạn 2 trong plan cũ):
-login giữ token rồi dùng cho request sau.
+Kỹ năng chính: login giữ token rồi dùng cho request sau (correlation).
 
-- [ ] **2.4** `scenarios/auth-flow.js`: `POST /rest/user/login` lấy
-      `authentication.token` từ response JSON, gắn vào header `Authorization:
-      Bearer <token>` cho request kế tiếp (`GET /rest/basket/:id`).
-- [ ] **2.5** Check status **trước khi** dùng token — login fail thì dừng
-      iteration, tránh lỗi `undefined` lan sang các bước sau (cùng pattern đã
-      dùng với CAPTCHA ở `search-and-feedback.js`).
-- [ ] **2.6** Nhánh đăng ký user mới (`POST /api/Users`) với email ngẫu nhiên
-      hậu tố `${__VU}-${__ITER}` — tránh lỗi duplicate email khi nhiều VU chạy
-      song song.
-- [ ] **2.7** Threshold **riêng cho nhóm auth** bằng `tags` — endpoint login
-      chậm hơn hẳn endpoint đọc vì bcrypt hash tốn CPU. Dùng mốc ở
-      [TEST-DESIGN.md §4](TEST-DESIGN.md#4-threshold-cho-từng-loại-luồng-bước-4)
-      làm điểm khởi đầu, chỉnh lại theo số đo thật.
+- [x] **2.4** [scenarios/auth-flow.js](scenarios/auth-flow.js): 4 bước —
+      đăng ký (`POST /api/Users`) → đăng nhập (`POST /rest/user/login`, lấy
+      `authentication.token`) → đọc dữ liệu cần token (`GET /rest/basket/:id`
+      + `GET /rest/user/whoami`) → đăng nhập sai mật khẩu (đo đường lỗi).
+- [x] **2.5** Check status **trước khi** dùng token, dừng iteration nếu fail —
+      cùng pattern đã dùng với CAPTCHA ở `search-and-feedback.js`. Có 2 chốt:
+      sau register và sau login.
+- [x] **2.6** Email duy nhất theo `k6-${RUN_ID}-v${__VU}i${__ITER}@e2e.local`.
+      `RUN_ID` (timestamp) là phần **bắt buộc thêm** ngoài `__VU`/`__ITER`:
+      cặp VU+ITER lặp lại giữa các lần chạy, nên chạy lần 2 mà chưa reset DB
+      sẽ toàn 400 duplicate. Đã verify: cố ý cho mọi VU dùng chung 1 email →
+      exit 99 với check register đỏ.
+- [x] **2.7** Threshold riêng theo tag `Register` / `Login` / `AuthedRead`.
+      Register nới gấp đôi 2 bước kia vì là bước duy nhất GHI vào DB.
+
+- [x] **2.7b** Đo riêng **đường login thất bại** (`step_login_fail_ms`). Hai
+      lý do: (1) sai mật khẩu là traffic thật, không phải ca hiếm; (2) nếu
+      đường lỗi *chậm hơn hẳn* đường thành công thì đó là lỗ hổng từ chối dịch
+      vụ — kẻ tấn công gửi mật khẩu sai liên tục để ngốn CPU.
+
+      Kết quả đo: **đường lỗi nhanh hơn** (load 25 VU: fail p95 51ms vs
+      thành công 60ms) → không có vấn đề này. Request 401 cố ý được loại khỏi
+      thống kê lỗi bằng `http.expectedStatuses(401)`, nếu không mỗi iteration
+      tự cộng 1 lỗi và ngưỡng `rate<0.01` không bao giờ đạt.
+
+#### ⚠️ Hai giả định sai bị phát hiện khi đo thật
+
+**1. "Auth chậm hơn vì bcrypt" — SAI.** Số đo (10 lần gọi tuần tự):
+
+| Endpoint                | Latency  | Có auth? |
+| ----------------------- | -------- | -------- |
+| `POST /rest/user/login` | ~13-17ms | ✅        |
+| `GET /api/Products`     | ~19-36ms | ❌        |
+| `GET /rest/user/whoami` | ~7-11ms  | ✅        |
+
+Juice Shop băm mật khẩu bằng **MD5 không salt**, không phải bcrypt — xác nhận
+bằng cách giải payload JWT lấy chuỗi hash rồi so với `md5sum` của mật khẩu,
+khớp chính xác. MD5 gần như miễn phí CPU. Endpoint sản phẩm chậm hơn chỉ vì
+phải serialize 37 bản ghi JSON.
+
+→ Đã sửa ngưỡng auth từ 800ms (theo
+[TEST-DESIGN.md §4](TEST-DESIGN.md#4-threshold-cho-từng-loại-luồng-bước-4) cũ)
+xuống 500ms. **Bài học:** ngưỡng đặt theo phỏng đoán về chi phí nội bộ dễ sai,
+và nới tay cho chi phí không tồn tại khiến test không bắt được regression —
+endpoint chậm đi 50× vẫn "pass".
+
+**2. `whoami` đọc token từ COOKIE, không phải header `Authorization`.** Gửi
+bằng header vẫn trả **status 200** nhưng body `{"user":{}}` rỗng. Nếu chỉ
+check status, lỗi này lọt hoàn toàn và ta tưởng đang đo endpoint có xác thực
+trong khi thực tế đo đường ẩn danh. → Đây là lý do mọi check status đều phải
+đi kèm check nội dung.
+
+**Số liệu quan sát** (mốc tham khảo, không phải số chính thức cho CV):
+
+| Tier     | VU  | req/s | Register p95 | Login p95 | AuthedRead p95 | fail |
+| -------- | --- | ----- | ------------ | --------- | -------------- | ---- |
+| baseline | 5   | 5.8   | 74.5ms       | 33.1ms    | 29.6ms         | 0%   |
+| load     | 25  | 28.0  | 132.9ms      | 59.7ms    | 61.1ms         | 0%   |
+
+Register luôn là bước chậm nhất (~2× login) — đúng dự đoán, vì là bước duy
+nhất ghi vào DB.
+
+> **Dữ liệu rác:** mỗi iteration tạo 1 user mới. Chạy mốc stress (100 VU) để
+> lại hàng trăm user trong DB. Reset bằng `npm run app:reset`.
 
 ### 2.4 Scenario C — Purchase journey (hỗn hợp, nhiều scenario song song)
 

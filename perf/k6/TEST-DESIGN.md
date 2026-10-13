@@ -86,15 +86,28 @@ endpoint ghi dữ liệu (DB write) vốn chậm hơn endpoint đọc thuần, n
 threshold cần tách theo nhóm bằng `tags` (xem Giai đoạn 4 trong
 [PLAN.md](PLAN.md)):
 
-| Nhóm                               | p(95) mục tiêu | error rate mục tiêu | Lý do                                                    |
-| ---------------------------------- | -------------- | ------------------- | -------------------------------------------------------- |
-| Đọc, không auth (products, search) | < 200ms        | < 1%                | Đơn giản nhất, chỉ query + serialize JSON                |
-| Ghi, không auth (register)         | < 500ms        | < 1%                | Có validate + DB insert                                  |
-| Có auth (login, basket, checkout)  | < 800ms        | < 1%                | bcrypt hash password tốn CPU đáng kể, cộng thêm DB write |
+| Nhóm                               | p(95) mục tiêu | error rate mục tiêu | Lý do                                     |
+| ---------------------------------- | -------------- | ------------------- | ----------------------------------------- |
+| Đọc, không auth (products, search) | < 200ms        | < 1%                | Đơn giản nhất, chỉ query + serialize JSON |
+| Ghi, không auth (register)         | < 1000ms       | < 1%                | Validate + DB insert — bước ghi duy nhất  |
+| Có auth (login, basket, whoami)    | < 500ms        | < 1%                | Verify JWT + query; băm mật khẩu rất rẻ   |
 
 Các con số này là **mốc khởi điểm để bắt đầu đo**, không phải chuẩn tuyệt
 đối — sau khi chạy baseline thật lần đầu, nên điều chỉnh threshold theo số
 liệu thực tế đo được (không đặt threshold sát 0% margin so với baseline).
+
+> **Đã sửa sau khi đo thật (2026-10-13).** Bảng trên ban đầu đặt nhóm auth ở
+> `< 800ms` với lý do "bcrypt hash password tốn CPU đáng kể". Đo thật thì
+> **ngược lại**: `POST /rest/user/login` chạy ~13-17ms, còn `GET /api/Products`
+> (công khai, không auth) chạy ~19-36ms. Nguyên nhân: Juice Shop băm mật khẩu
+> bằng **MD5 không salt**, không phải bcrypt — MD5 gần như miễn phí CPU.
+> Endpoint sản phẩm chậm hơn chỉ vì phải serialize 37 bản ghi JSON.
+>
+> Bài học giữ lại: ngưỡng đặt theo **phỏng đoán** về chi phí nội bộ của hệ
+> thống dễ sai, và sai theo hướng nguy hiểm — nới tay cho một chi phí không
+> tồn tại (800ms cho endpoint thực tế chạy 15ms) khiến bài test không bao giờ
+> bắt được regression: nó đã chậm đi 50 lần mà vẫn "pass". Luôn đo trước, đặt
+> ngưỡng sau.
 
 ---
 
@@ -118,7 +131,7 @@ perf/k6/
 │   └── search-terms.json       # từ khoá search cho SharedArray (đã có ✅)
 ├── scenarios/
 │   ├── browse-products.js      # luồng đọc: list + search + detail (không auth) (đã có ✅)
-│   ├── auth-flow.js            # luồng login + đăng ký
+│   ├── auth-flow.js            # luồng đăng ký + login + đọc có token (đã có ✅)
 │   ├── basket-flow.js          # luồng login → thêm giỏ hàng → xem giỏ
 │   └── purchase-journey.js     # luồng đầy đủ: login → search → basket → checkout
 └── results/                    # (gitignore) JSON output lưu lại mỗi lần chạy để so sánh
@@ -145,10 +158,11 @@ Thứ tự này bám theo mức độ phức tạp kỹ thuật tăng dần, kh�
       search đọc từ [data/search-terms.json](data/search-terms.json) qua
       `SharedArray`. Mốc tải chọn bằng `-e TIER=...`, threshold nới riêng cho
       tier stress.
-- [ ] **6.3** `scenarios/auth-flow.js`: login lấy token (Giai đoạn 2 trong
-      PLAN.md), thêm nhánh đăng ký user mới với email ngẫu nhiên (tránh lỗi
-      "duplicate email" khi chạy nhiều VU — dùng `${__VU}-${__ITER}` làm
-      hậu tố email).
+- [x] **6.3** [scenarios/auth-flow.js](scenarios/auth-flow.js): đăng ký user
+      mới (email duy nhất theo `${RUN_ID}-${__VU}-${__ITER}` — `RUN_ID` là bắt
+      buộc vì cặp VU+ITER lặp lại giữa các lần chạy) → login lấy token → đọc
+      basket + whoami bằng token → đo thêm đường login thất bại để loại trừ
+      lỗ hổng DoS qua mật khẩu sai. Threshold riêng theo tag cho từng bước.
 - [ ] **6.4** `scenarios/basket-flow.js`: login → thêm sản phẩm vào giỏ →
       xem giỏ hàng, threshold riêng cho nhóm "có auth".
 - [ ] **6.5** `scenarios/purchase-journey.js`: nối các bước ở 6.2-6.4 thành

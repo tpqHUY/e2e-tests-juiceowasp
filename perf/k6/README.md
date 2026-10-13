@@ -185,6 +185,41 @@ tạo do cache.
 > bại. Nhưng các `check()` về tính đúng đắn dữ liệu vẫn phải pass 100% ở mọi
 > mốc tải: app quá tải được phép chậm, không được phép trả sai dữ liệu.
 
+### `auth-flow.js` — luồng xác thực (đăng ký → đăng nhập → đọc có token)
+
+4 bước: tạo tài khoản mới → đăng nhập lấy token → đọc giỏ hàng + thông tin
+tài khoản bằng token → thử đăng nhập sai mật khẩu.
+
+```powershell
+k6 run perf/k6/scenarios/auth-flow.js                 # baseline (5 VU)
+k6 run -e TIER=smoke perf/k6/scenarios/auth-flow.js   # kiểm tra script chạy đúng
+k6 run -e TIER=load perf/k6/scenarios/auth-flow.js    # 25 VU
+```
+
+Kỹ thuật chính là **correlation**: lấy `authentication.token` từ response của
+login rồi gắn vào request sau. Luôn phải `check()` trước khi dùng token —
+không có bước đó, các request sau gửi `Bearer undefined`, nhận 401, và số liệu
+vẫn "chạy" bình thường nhưng đo sai hoàn toàn đường code.
+
+Bước 4 đo riêng đường **login thất bại** (`step_login_fail_ms`). Không chỉ để
+cho đủ: nếu đường lỗi chậm hơn hẳn đường thành công thì đó là lỗ hổng từ chối
+dịch vụ (gửi mật khẩu sai liên tục để ngốn CPU). Số đo thực tế cho thấy đường
+lỗi *nhanh hơn*, nên Juice Shop không có vấn đề này.
+
+> **⚠️ Dữ liệu rác:** mỗi iteration tạo 1 user mới trong DB. Chạy mốc stress
+> (100 VU) sẽ để lại hàng trăm user. Reset bằng `npm run app:reset`.
+
+> **Hai bẫy đã gặp thật khi viết scenario này** (ghi lại để không mất thời
+> gian lần sau):
+>
+> 1. `GET /rest/user/whoami` đọc token từ **cookie**, không phải header
+>    `Authorization` như `/rest/basket/:id`. Gửi sai cách vẫn nhận **200**
+>    nhưng body rỗng `{"user":{}}` — nên mọi check status phải đi kèm check
+>    nội dung, không thì lỗi lọt.
+> 2. Email test phải có thêm `RUN_ID` ngoài `__VU`/`__ITER`: cặp VU+ITER lặp
+>    lại giữa các lần chạy, nên chạy lần 2 mà chưa reset DB sẽ toàn 400
+>    duplicate email.
+
 ## 8. Các bước tiếp theo khi đã quen
 
 Một vài hướng để mở rộng khi đã hiểu 2 kịch bản trên (không làm ngay, chỉ để
