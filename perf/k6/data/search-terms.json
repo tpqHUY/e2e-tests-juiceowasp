@@ -1,0 +1,13 @@
+{
+  "terms": [
+    { "q": "juice", "expectedMin": 10 },
+    { "q": "apple", "expectedMin": 1 },
+    { "q": "banana", "expectedMin": 1 },
+    { "q": "lemon", "expectedMin": 1 },
+    { "q": "sticker", "expectedMin": 1 },
+    { "q": "shirt", "expectedMin": 1 },
+    { "q": "melon", "expectedMin": 0 },
+    { "q": "coffee", "expectedMin": 0 },
+    { "q": "zzzznotfound", "expectedMin": 0 }
+  ]
+}

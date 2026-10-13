@@ -145,7 +145,47 @@ thực). Nếu nó đỏ, đừng tin số liệu của các kịch bản khác:
 > Threshold chỉ tính các check của riêng smoke (`checks{kind:smoke}`), nên
 > k6 vẫn exit 0 khi mọi thứ đúng.
 
-## 7. Các bước tiếp theo khi đã quen
+## 7. Kịch bản theo luồng nghiệp vụ (`scenarios/`)
+
+Khác với 2 script học tập ở mục 3-5 (mỗi script gọi lặp lại 1 endpoint), các
+kịch bản trong [scenarios/](scenarios/) mô phỏng **một lượt dùng app thật**:
+1 iteration đi qua nhiều endpoint theo đúng thứ tự người dùng bấm.
+
+### `browse-products.js` — luồng duyệt sản phẩm (không cần đăng nhập)
+
+3 bước trong 1 iteration: xem danh sách → tìm kiếm → mở 2 sản phẩm chi tiết.
+
+```powershell
+k6 run perf/k6/scenarios/browse-products.js                 # mốc baseline (5 VU, mặc định)
+k6 run -e TIER=smoke perf/k6/scenarios/browse-products.js   # chỉ kiểm tra script chạy đúng (vài giây)
+k6 run -e TIER=load perf/k6/scenarios/browse-products.js    # 25 VU — mốc dùng để báo cáo số liệu
+k6 run -e TIER=stress perf/k6/scenarios/browse-products.js  # 100 VU — ép tới giới hạn
+```
+
+Trong summary sẽ thấy 3 metric riêng cho từng bước, bên cạnh
+`http_req_duration` gộp chung:
+
+```
+step_catalog_ms ...  avg=36.33ms  p(95)=104.93ms
+step_search_ms ....  avg=14.92ms  p(95)=47.26ms
+step_detail_ms ....  avg=26.12ms  p(95)=61.6ms
+```
+
+Vì sao tách: nếu chỉ đọc `http_req_duration` gộp, một bước chậm sẽ bị các bước
+nhanh pha loãng và ta không biết nên tối ưu chỗ nào.
+
+Từ khoá tìm kiếm lấy từ [data/search-terms.json](data/search-terms.json) —
+trộn cả từ khoá nhiều kết quả (`juice` → 30/37 sản phẩm), ít kết quả
+(`lemon` → 1) và không có kết quả (`zzzznotfound` → 0), vì chi phí xử lý của
+server khác nhau hẳn giữa 3 nhóm. Gọi lặp lại cùng 1 query sẽ cho số đẹp giả
+tạo do cache.
+
+> `TIER=stress` dùng ngưỡng latency nới hơn (3s thay vì 200ms) — mục đích của
+> bài stress là *tìm* điểm vỡ, nên chậm là kết quả mong đợi, không phải thất
+> bại. Nhưng các `check()` về tính đúng đắn dữ liệu vẫn phải pass 100% ở mọi
+> mốc tải: app quá tải được phép chậm, không được phép trả sai dữ liệu.
+
+## 8. Các bước tiếp theo khi đã quen
 
 Một vài hướng để mở rộng khi đã hiểu 2 kịch bản trên (không làm ngay, chỉ để
 tham khảo khi sẵn sàng):

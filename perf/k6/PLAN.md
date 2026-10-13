@@ -142,16 +142,70 @@ luồng ở [§2](TEST-DESIGN.md#2-chọn-luồng-nghiệp-vụ-cần-test-bư�
 
       Chạy: `k6 run perf/k6/lib/config.smoke.js` (cần app đang chạy).
 
-### 2.2 Scenario A — Browse (đọc, không auth)
+### 2.2 Scenario A — Browse (đọc, không auth) ✅
 
-- [ ] **2.2** `scenarios/browse-products.js`: 1 VU luân phiên `GET
-      /api/Products` + `GET /rest/products/search?q=` với từ khoá khác nhau,
-      mô phỏng user duyệt sản phẩm. Tận dụng logic đã có ở `get-products.js`
-      và phần search ở `search-and-feedback.js`.
-- [ ] **2.3** Dùng `SharedArray` cho danh sách từ khoá search thay vì hardcode
-      `q=juice` — để các VU không gọi y hệt 1 request (cache DB/app sẽ làm số
-      đẹp giả tạo).
-      _(kỹ thuật Giai đoạn 4 cũ: data-driven)_
+- [x] **2.2** [scenarios/browse-products.js](scenarios/browse-products.js):
+      1 iteration đi qua 3 bước theo đúng thứ tự người thật bấm — xem danh
+      sách (`GET /api/Products`) → tìm kiếm (`GET /rest/products/search?q=`)
+      → mở 2 sản phẩm chi tiết (`GET /api/Products/:id`). Mỗi bước gói trong
+      `group()` và có `Trend` riêng (`step_catalog_ms`, `step_search_ms`,
+      `step_detail_ms`) + tag riêng, để biết bước nào chậm thay vì chỉ thấy
+      một con số trung bình đã bị pha loãng.
+
+      Id sản phẩm ở bước 3 **lấy từ response của bước 1**, không hardcode —
+      Juice Shop reset dữ liệu mỗi lần container khởi động nên id cứng sẽ
+      thành 404 âm thầm.
+
+- [x] **2.3** `SharedArray` đọc [data/search-terms.json](data/search-terms.json)
+      thay vì hardcode `q=juice`. Danh sách cố ý trộn 3 nhóm vì chi phí xử lý
+      của server khác nhau rõ rệt (số đo thật trên máy local):
+
+      | Nhóm từ khoá    | VD              | Kết quả | p95 quan sát (25 VU) |
+      | --------------- | --------------- | ------- | -------------------- |
+      | nhiều kết quả   | `juice`         | 30/37   | chậm nhất            |
+      | ít kết quả      | `lemon`         | 1       | trung bình           |
+      | không kết quả   | `zzzznotfound`  | 0       | nhanh nhất           |
+
+      Chỉ test nhóm đầu → đánh giá quá bi quan; chỉ nhóm cuối → quá lạc quan.
+      Mỗi từ khoá có `expectedMin` để check app **thật sự tìm được dữ liệu**,
+      không chỉ "trả 200 với mảng rỗng" (không có check này, app hỏng index
+      vẫn pass toàn bộ bài test).
+
+- [x] **2.3b** Chọn mốc tải bằng `-e TIER=smoke|baseline|load|stress`, lấy số
+      từ `VUS` trong `lib/config.js`. TIER sai bị chặn ngay ở init stage
+      (`-e TIER=lod` → k6 báo lỗi và dừng) — nếu không, `TARGET_VUS` thành
+      `undefined` và k6 âm thầm chạy cấu hình mặc định, ta tưởng đang đo mốc
+      load nhưng không phải.
+
+      **Threshold nới theo tier** (`LATENCY_P95_MS`): 200ms cho
+      smoke/baseline/load, 3000ms cho stress. Lý do: tier stress cố ý ép quá
+      giới hạn để *tìm* điểm vỡ, chậm là kết quả mong đợi — giữ ngưỡng 200ms
+      thì tier này luôn exit 99 và con số không còn mang thông tin. Nhưng
+      `checks: rate==1.0` giữ nguyên ở **mọi** tier: app quá tải được phép
+      chậm, không được phép trả sai dữ liệu.
+
+      Chạy: `k6 run -e TIER=load perf/k6/scenarios/browse-products.js`
+
+**Số liệu quan sát lần đầu** (máy local, Juice Shop 17.1.1 trong Docker — là
+mốc tham khảo để biết script hoạt động, **không phải** số chính thức cho CV;
+số chính thức sẽ đo ở §3 theo đúng quy trình ≥3 lần):
+
+| Tier         | VU  | req/s | p95 tổng | fail | Ghi chú                       |
+| ------------ | --- | ----- | -------- | ---- | ----------------------------- |
+| baseline     | 5   | ~5.5  | 29-54ms  | 0%   | **dao động gần 2× giữa 2 lần chạy** |
+| load         | 25  | 26.4  | 71.9ms   | 0%   | threshold 200ms vẫn đạt       |
+| stress       | 100 | 40-54 | 1.5-2.7s | 0%   | latency tăng ~35×, chưa lỗi   |
+
+Hai điểm rút ra:
+
+1. **Dao động lớn giữa các lần chạy giống nhau** (p95 29ms vs 54ms ở cùng mốc
+   baseline) — bằng chứng cụ thể cho nguyên tắc "chạy ≥3 lần mới lấy số" ở
+   [§0](#nguyên-tắc-xuyên-suốt-quan-trọng-hơn-cả-checklist). Lấy số từ 1 lần
+   chạy là lấy một mẫu ngẫu nhiên.
+2. **Ở 100 VU: latency tăng ~35× nhưng fail vẫn 0%** — đúng dấu hiệu *bão hoà*
+   (saturation), chưa phải *vỡ* (failure): hệ thống còn xử lý được mọi request,
+   chỉ là xếp hàng chờ CPU. Khớp với kết luận CPU-bound đã có ở
+   [LEARNING.md Case 5](LEARNING.md#case-5-liên-hệ-trực-tiếp--juice-shop-local-bão-hoà-cpu-đơn-luồng).
 
 ### 2.3 Scenario B — Auth flow (ghi + auth, phần chậm nhất)
 

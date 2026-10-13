@@ -60,6 +60,7 @@ export const ENDPOINTS = {
   login: '/rest/user/login',
   users: '/api/Users',
   products: '/api/Products',
+  product: (id) => `/api/Products/${id}`,
   productSearch: '/rest/products/search',
   basket: (id) => `/rest/basket/${id}`,
   basketItems: '/api/BasketItems',

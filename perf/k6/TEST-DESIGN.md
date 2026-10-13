@@ -114,8 +114,10 @@ perf/k6/
 ├── lib/
 │   ├── config.js               # BASE_URL, mốc VU, ENDPOINTS, helper login lấy token (đã có ✅)
 │   └── config.smoke.js         # smoke test cho chính config.js (đã có ✅)
+├── data/
+│   └── search-terms.json       # từ khoá search cho SharedArray (đã có ✅)
 ├── scenarios/
-│   ├── browse-products.js      # luồng đọc: list + search (không auth)
+│   ├── browse-products.js      # luồng đọc: list + search + detail (không auth) (đã có ✅)
 │   ├── auth-flow.js            # luồng login + đăng ký
 │   ├── basket-flow.js          # luồng login → thêm giỏ hàng → xem giỏ
 │   └── purchase-journey.js     # luồng đầy đủ: login → search → basket → checkout
@@ -137,9 +139,12 @@ Thứ tự này bám theo mức độ phức tạp kỹ thuật tăng dần, kh�
       `jsonParams()` + `login()` — để không hardcode rải rác từng file. Kèm
       [lib/config.smoke.js](lib/config.smoke.js) verify helper hoạt động đúng
       trước khi các scenario dựng lên trên nó.
-- [ ] **6.2** `scenarios/browse-products.js`: gộp GET Products + GET search
-      vào 1 kịch bản (VU luân phiên gọi cả 2 endpoint, mô phỏng user duyệt
-      sản phẩm). Tận dụng lại logic đã có ở `get-products.js`.
+- [x] **6.2** [scenarios/browse-products.js](scenarios/browse-products.js):
+      gộp GET Products + GET search + GET product detail vào 1 kịch bản 3 bước
+      (mô phỏng user duyệt sản phẩm), mỗi bước có `Trend` + tag riêng. Từ khoá
+      search đọc từ [data/search-terms.json](data/search-terms.json) qua
+      `SharedArray`. Mốc tải chọn bằng `-e TIER=...`, threshold nới riêng cho
+      tier stress.
 - [ ] **6.3** `scenarios/auth-flow.js`: login lấy token (Giai đoạn 2 trong
       PLAN.md), thêm nhánh đăng ký user mới với email ngẫu nhiên (tránh lỗi
       "duplicate email" khi chạy nhiều VU — dùng `${__VU}-${__ITER}` làm
